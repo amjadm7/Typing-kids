@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Typing Practice Game</title>
+  <style>
+    body {
+      text-align: center;
+      font-family: Arial, sans-serif;
+      margin-top: 40px;
+      transition: background-color 0.5s;
+      overflow: hidden;
+    }
+    #letter {
+      font-size: 180px;
+      font-weight: bold;
+      margin: 40px;
+      display: none;
+      animation: float 3s ease-in-out infinite;
+    }
+    @keyframes float {
+      0%   { transform: translateY(0px); }
+      50%  { transform: translateY(-30px); }
+      100% { transform: translateY(0px); }
+    }
+    #score, #timer, #level, #highScore {
+      font-size: 24px;
+      margin-top: 10px;
+      color: darkblue;
+      display: none;
+    }
+    #controls, #inputMode {
+      margin: 20px;
+    }
+    #startBtn, #restartBtn {
+      font-size: 20px;
+      padding: 10px 20px;
+      margin-top: 20px;
+    }
+    .reward {
+      position: absolute;
+      font-size: 80px;
+      animation: floatUp 1s ease-out forwards;
+    }
+    @keyframes floatUp {
+      from { transform: translateY(0); opacity: 1; }
+      to { transform: translateY(-100px); opacity: 0; }
+    }
+    #progressBarContainer {
+      width: 80%;
+      height: 20px;
+      background: #ddd;
+      margin: 20px auto;
+      border-radius: 10px;
+      display: none;
+    }
+    #progressBar {
+      height: 100%;
+      width: 0%;
+      background: limegreen;
+      border-radius: 10px;
+      transition: width 0.3s ease;
+    }
+    .letterButton {
+      font-size: 50px;
+      padding: 20px;
+      margin: 10px;
+      cursor: pointer;
+      border-radius: 15px;
+      border: 2px solid black;
+      transition: transform 0.2s;
+    }
+    .letterButton:hover {
+      transform: scale(1.2);
+    }
+  </style>
+</head>
+<body>
+  <h1>Typing Practice Game</h1>
+
+  <!-- Mode selection -->
+  <div id="inputMode">
+    <p>Select input mode:</p>
+    <button id="keyboardModeBtn">Keyboard</button>
+    <button id="clickModeBtn">Click on Letter</button>
+  </div>
+
+  <!-- Input section -->
+  <div id="controls" style="display:none;">
+    <label for="lettersInput">Enter letters (e.g. ABC): </label>
+    <input type="text" id="lettersInput" maxlength="26">
+    <br><br>
+    <label><input type="checkbox" id="timerMode"> 30 Second Timer Mode</label>
+    <br>
+    <button id="startBtn">Start Game</button>
+  </div>
+
+  <!-- Game section -->
+  <div id="letter">A</div>
+  <div id="letterButtons" style="display:none;"></div>
+  <div id="score">Score: 0</div>
+  <div id="level">Level: 1</div>
+  <div id="highScore">High Score: 0</div>
+  <div id="timer"></div>
+
+  <div id="progressBarContainer">
+    <div id="progressBar"></div>
+  </div>
+
+  <button id="restartBtn" style="display:none;">Restart</button>
+
+  <!-- Sounds -->
+  <audio id="correct1" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"></audio>
+  <audio id="correct2" src="https://actions.google.com/sounds/v1/cartoon/cartoon_boing.ogg"></audio>
+  <audio id="correct3" src="https://actions.google.com/sounds/v1/cartoon/slide_whistle_to_drum_hit.ogg"></audio>
+  <audio id="wrongSound" src="https://actions.google.com/sounds/v1/cartoon/cartoon_boo.ogg"></audio>
+  <audio id="cheerSound" src="https://actions.google.com/sounds/v1/crowds/large_crowd_cheer.ogg"></audio>
+
+  <script>
+    let letters = [];
+    const colors = ["red", "blue", "green", "purple", "orange", "brown", "pink", "gold"];
+    const bgColors = ["#f0f8ff", "#ffe4e1", "#e6ffe6", "#fffacd", "#e0ffff", "#f5f5dc", "#fbeee6"];
+    const rewards = ["⭐", "👏", "🎉", "😃", "🌟"];
+    const correctSounds = ["correct1", "correct2", "correct3"];
+
+    let currentLetter = "";
+    let score = 0;
+    let level = 1;
+    let timer = null;
+    let timeLeft = 30;
+    let highScore = localStorage.getItem("highScore") || 0;
+    let inputMode = ""; // "keyboard" or "click"
+
+    document.getElementById("highScore").textContent = "High Score: " + highScore;
+
+    function newLetter() {
+      currentLetter = letters[Math.floor(Math.random() * letters.length)];
+      const randomColor = colors[Math.floor(Math.random() * colors.length)];
+      const randomBg = bgColors[Math.floor(Math.random() * bgColors.length)];
+
+      const letterDiv = document.getElementById("letter");
+      letterDiv.textContent = currentLetter;
+      letterDiv.style.color = randomColor;
+      document.body.style.backgroundColor = randomBg;
+    }
+
+    function showReward() {
+      const reward = rewards[Math.floor(Math.random() * rewards.length)];
+      const rewardDiv = document.createElement("div");
+      rewardDiv.textContent = reward;
+      rewardDiv.className = "reward";
+      rewardDiv.style.left = Math.random() * 80 + "vw";
+      rewardDiv.style.top = "60%";
+      document.body.appendChild(rewardDiv);
+      setTimeout(() => rewardDiv.remove(), 1000);
+    }
+
+    function playRandomSound() {
+      const soundId = correctSounds[Math.floor(Math.random() * correctSounds.length)];
+      document.getElementById(soundId).play();
+    }
+
+    function updateProgress() {
+      let progress = (score % 10) * 10;
+      document.getElementById("progressBar").style.width = progress + "%";
+      if (progress === 0 && score > 0) {
+        level++;
+        document.getElementById("level").textContent = "Level: " + level;
+        document.getElementById("cheerSound").play();
+        alert("🎉 Level Up! Welcome to Level " + level);
+      }
+    }
+
+    function setupLetterButtons() {
+      const container = document.getElementById("letterButtons");
+      container.innerHTML = "";
+      letters.forEach(l => {
+        const btn = document.createElement("button");
+        btn.textContent = l;
+        btn.className = "letterButton";
+        btn.addEventListener("click", () => {
+          if (l === currentLetter) {
+            score++;
+            document.getElementById("score").textContent = "Score: " + score;
+            showReward();
+            playRandomSound();
+            updateProgress();
+            if (score > highScore) {
+              highScore = score;
+              localStorage.setItem("highScore", highScore);
+              document.getElementById("highScore").textContent = "High Score: " + highScore;
+            }
+            newLetter();
+          } else {
+            document.getElementById("wrongSound").play();
+          }
+        });
+        container.appendChild(btn);
+      });
+      container.style.display = "block";
+    }
+
+    document.getElementById("keyboardModeBtn").addEventListener("click", () => {
+      inputMode = "keyboard";
+      document.getElementById("inputMode").style.display = "none";
+      document.getElementById("controls").style.display = "block";
+    });
+
+    document.getElementById("clickModeBtn").addEventListener("click", () => {
+      inputMode = "click";
+      document.getElementById("inputMode").style.display = "none";
+      document.getElementById("controls").style.display = "block";
+    });
+
+    document.getElementById("startBtn").addEventListener("click", function() {
+      const input = document.getElementById("lettersInput").value.toUpperCase();
+      if (input.length === 0) {
+        alert("Please enter at least one letter!");
+        return;
+      }
+      letters = input.split("");
+      score = 0;
+      level = 1;
+      document.getElementById("score").textContent = "Score: 0";
+      document.getElementById("level").textContent = "Level: 1";
+      document.getElementById("progressBar").style.width = "0%";
+
+      document.getElementById("controls").style.display = "none";
+      document.getElementById("letter").style.display = "block";
+      document.getElementById("score").style.display = "block";
+      document.getElementById("level").style.display = "block";
+      document.getElementById("highScore").style.display = "block";
+      document.getElementById("restartBtn").style.display = "inline-block";
+      document.getElementById("progressBarContainer").style.display = "block";
+
+      if (inputMode === "click") setupLetterButtons();
+      else document.getElementById("letterButtons").style.display = "none";
+
+      if (document.getElementById("timerMode").checked) {
+        timeLeft = 30;
+        document.getElementById("timer").style.display = "block";
+        document.getElementById("timer").textContent = "Time Left: 30s";
+        timer = setInterval(() => {
+          timeLeft--;
+          document.getElementById("timer").textContent = "Time Left: " + timeLeft + "s";
+          if (timeLeft <= 0) {
+            clearInterval(timer);
+            alert("⏰ Time’s up! Your score: " + score);
+            document.getElementById("cheerSound").play();
+          }
+        }, 1000);
+      }
+
+      newLetter();
+    });
+
+    document.addEventListener("keydown", function(event) {
+      if (inputMode !== "keyboard") return;
+      if (letters.length === 0) return;
+      if (event.key.toUpperCase() === currentLetter) {
+        score++;
+        document.getElementById("score").textContent = "Score: " + score;
+        showReward();
+        playRandomSound();
+        updateProgress();
+        if (score > highScore) {
+          highScore = score;
+          localStorage.setItem("highScore", highScore);
+          document.getElementById("highScore").textContent = "High Score: " + highScore;
+        }
+        newLetter();
+      } else {
+        document.getElementById("wrongSound").play();
+      }
+    });
+
+    document.getElementById("restartBtn").addEventListener("click", function() {
+      clearInterval(timer);
+      letters = [];
+      score = 0;
+      level = 1;
+      inputMode = "";
+      document.getElementById("inputMode").style.display = "block";
+      document.getElementById("controls").style.display = "none";
+      document.getElementById("letter").style.display = "none";
+      document.getElementById("score").style.display = "none";
+      document.getElementById("level").style.display = "none";
+      document.getElementById("timer").style.display = "none";
+      document.getElementById("restartBtn").style.display = "none";
+      document.getElementById("progressBarContainer").style.display = "none";
+      document.getElementById("letterButtons").style.display = "none";
+      document.body.style.backgroundColor = "#ffffff";
+    });
+  </script>
+</body>
+</html>
